@@ -39,6 +39,12 @@ type AddShipsMessage = {
   id: number;
 };
 
+type RandomAttackMessage = {
+  type: "randomAttack";
+  data: { gameId: string; indexPlayer: string };
+  id: 0;
+};
+
 type AttackMessage = {
   type: "attack";
   data: {
@@ -55,7 +61,8 @@ type MessageType =
   | CreateRoomMessage
   | AddUserRoomMessage
   | AddShipsMessage
-  | AttackMessage;
+  | AttackMessage
+  | RandomAttackMessage;
 
 type IUser = {
   [key: string]: {
@@ -96,5 +103,6 @@ export type {
   ShipsType,
   AttackMessage,
   WinnersType,
-  AddUserRoomMessage
+  AddUserRoomMessage,
+  RandomAttackMessage,
 };

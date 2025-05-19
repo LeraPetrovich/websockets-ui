@@ -12,6 +12,7 @@ import { addShips } from "../routes/game/addShips";
 import { addAttack } from "../routes/game/addAttack";
 
 export const handleMessage = (message: MessageType, uuid: string) => {
+  console.log(message);
   try {
     switch (message.type) {
       case "reg":
@@ -29,6 +30,9 @@ export const handleMessage = (message: MessageType, uuid: string) => {
         break;
       case "attack":
         addAttack(uuid, JSON.parse(message.data as any));
+        break;
+      case "randomAttack":
+        addAttack(uuid, JSON.parse(message.data as any), true);
         break;
       default:
         throw new Error("No valid type message");

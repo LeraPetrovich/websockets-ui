@@ -1,5 +1,4 @@
 import { game, connections } from "../../db/db";
-import { AddShipsMessage } from "../../db/types";
 
 export const addShips = (uuid: string, data: any) => {
   const connection = connections[uuid];
@@ -42,10 +41,10 @@ export const addShips = (uuid: string, data: any) => {
     connection.send(
       JSON.stringify({
         type: "start_game",
-        data: {
+        data: JSON.stringify({
           ships: player.ships,
           currentPlayerIndex: player.indexPlayer,
-        },
+        }),
         id: 0,
       })
     );

@@ -1,10 +1,8 @@
 import { game, connections } from "../../db/db";
 import { checkStatusAttack } from "../utils";
+import { updateWinners } from "../updateWinners";
 
-export const addAttack = (
-  uuid: string,
-  data: any
-) => {
+export const addAttack = (uuid: string, data: any, random = false) => {
   const { gameId, x, y, indexPlayer } = data;
 
   const currentGame = game.find((g) => g.gameId === gameId);
@@ -38,11 +36,11 @@ export const addAttack = (
     connections[player.indexPlayer].send(
       JSON.stringify({
         type: "attack",
-        data: {
+        data: JSON.stringify({
           position: attackPos,
           currentPlayer: indexPlayer,
           status,
-        },
+        }),
         id: 0,
       })
     );
@@ -54,11 +52,11 @@ export const addAttack = (
         connections[player.indexPlayer].send(
           JSON.stringify({
             type: "attack",
-            data: {
+            data: JSON.stringify({
               position: pos,
               currentPlayer: indexPlayer,
               status: "killed",
-            },
+            }),
             id: 0,
           })
         );
@@ -70,11 +68,11 @@ export const addAttack = (
         connections[player.indexPlayer].send(
           JSON.stringify({
             type: "attack",
-            data: {
+            data: JSON.stringify({
               position: pos,
               currentPlayer: indexPlayer,
               status: "miss",
-            },
+            }),
             id: 0,
           })
         );
@@ -82,43 +80,43 @@ export const addAttack = (
     }
   }
 
-  //   const defenderHasAlive = defender.ships.some((ship) => {
-  //     const shipCells = Array.from({ length: ship.length }).map((_, i) => ({
-  //       x: ship.position.x + (ship.direction ? i : 0),
-  //       y: ship.position.y + (ship.direction ? 0 : i),
-  //     }));
+  const defenderHasAlive = defender.ships.some((ship) => {
+    const shipCells = Array.from({ length: ship.length }).map((_, i) => ({
+      x: ship.position.x + (ship.direction ? i : 0),
+      y: ship.position.y + (ship.direction ? 0 : i),
+    }));
 
-  //     return shipCells.some(
-  //       (cell) => !ship.hits?.some((hit) => hit.x === cell.x && hit.y === cell.y)
-  //     );
-  //   });
+    console.log(shipCells);
 
-  //   if (!defenderHasAlive) {
-  //     currentGame.data.forEach((player) => {
-  //       connections[player.indexPlayer].send(
-  //         JSON.stringify({
-  //           type: "finish",
-  //           data: {
-  //             winPlayer: indexPlayer,
-  //           },
-  //           id: 0,
-  //         })
-  //       );
-  //     });
-  //     return;
-  //   }
+    return shipCells.some(
+      (cell) => !ship.hits?.some((hit) => hit.x === cell.x && hit.y === cell.y)
+    );
+  });
 
-  //после finish
-  // updateWinners();
+  if (!defenderHasAlive) {
+    currentGame.data.forEach((player) => {
+      connections[player.indexPlayer].send(
+        JSON.stringify({
+          type: "finish",
+          data: {
+            winPlayer: indexPlayer,
+          },
+          id: 0,
+        })
+      );
+    });
+    updateWinners();
+    return;
+  }
 
   const nextPlayer = defender.indexPlayer;
   currentGame.data.forEach((player) => {
     connections[player.indexPlayer].send(
       JSON.stringify({
         type: "turn",
-        data: {
+        data: JSON.stringify({
           currentPlayer: nextPlayer,
-        },
+        }),
         id: 0,
       })
     );
