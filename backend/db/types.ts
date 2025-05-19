@@ -27,6 +27,11 @@ type ShipsType = {
   direction: boolean;
   length: number;
   type: "small" | "medium" | "large" | "huge";
+  hits?: Array<{
+    x: number;
+    y: number;
+    status: string;
+  }>;
 };
 
 type AddShipsMessage = {
@@ -84,6 +89,11 @@ type GameType = {
   data: Array<{
     ships: Array<ShipsType>;
     indexPlayer: number | string;
+    hits?: Array<{
+      x: number;
+      y: number;
+      status: string;
+    }>;
   }>;
 };
 

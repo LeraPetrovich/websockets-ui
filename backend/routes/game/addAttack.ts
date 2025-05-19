@@ -1,13 +1,14 @@
 import { game, connections } from "../../db/db";
-import { checkStatusAttack } from "../utils";
+import { checkStatusAttack } from "../utils/utils";
+import { broadcast } from "../utils/sends";
 import { updateWinners } from "../updateWinners";
 
-export const addAttack = (uuid: string, data: any, random = false) => {
-  const { gameId, x, y, indexPlayer } = data;
-
+export const addAttack = (uuid: string, data: any, random = false): void => {
+  const { gameId, indexPlayer, x, y } = data;
   const currentGame = game.find((g) => g.gameId === gameId);
+
   if (!currentGame) {
-    connections[uuid].send(
+    connections[uuid]?.send(
       JSON.stringify({
         type: "error",
         data: { message: "Game not found" },
@@ -17,14 +18,41 @@ export const addAttack = (uuid: string, data: any, random = false) => {
     return;
   }
 
-  const attacker = currentGame.data.find(
-    (item) => item.indexPlayer === indexPlayer
-  );
-  const defender = currentGame.data.find(
-    (item) => item.indexPlayer !== indexPlayer
-  );
-
+  const attacker = currentGame.data.find((p) => p.indexPlayer === indexPlayer);
+  const defender = currentGame.data.find((p) => p.indexPlayer !== indexPlayer);
   if (!attacker || !defender) return;
+
+  if (random) {
+    const attackedPositions =
+      attacker.hits?.map((hit) => `${hit.x},${hit.y}`) || [];
+    const availablePositions: { x: number; y: number }[] = [];
+    const BOARD_SIZE = 10;
+
+    for (let x = 0; x < BOARD_SIZE; x++) {
+      for (let y = 0; y < BOARD_SIZE; y++) {
+        const key = `${x},${y}`;
+        if (!attackedPositions.includes(key)) {
+          availablePositions.push({ x, y });
+        }
+      }
+    }
+
+    if (availablePositions.length === 0) return;
+
+    const randomIndex = Math.floor(Math.random() * availablePositions.length);
+    const randomPos = availablePositions[randomIndex];
+
+    return addAttack(
+      uuid,
+      {
+        gameId,
+        indexPlayer,
+        x: randomPos.x,
+        y: randomPos.y,
+      },
+      false
+    );
+  }
 
   const attackPos = { x, y };
   const { status, killedShipCells, surroundingCells } = checkStatusAttack(
@@ -32,50 +60,31 @@ export const addAttack = (uuid: string, data: any, random = false) => {
     attackPos
   );
 
-  for (const player of currentGame.data) {
-    connections[player.indexPlayer].send(
-      JSON.stringify({
-        type: "attack",
-        data: JSON.stringify({
-          position: attackPos,
-          currentPlayer: indexPlayer,
-          status,
-        }),
-        id: 0,
-      })
-    );
-  }
+  if (!attacker.hits) attacker.hits = [];
+  attacker.hits.push({ ...attackPos, status });
+
+  broadcast(currentGame.data, "attack", {
+    position: attackPos,
+    currentPlayer: indexPlayer,
+    status,
+  });
 
   if (status === "killed" && killedShipCells && surroundingCells) {
     for (const pos of killedShipCells) {
-      currentGame.data.forEach((player) => {
-        connections[player.indexPlayer].send(
-          JSON.stringify({
-            type: "attack",
-            data: JSON.stringify({
-              position: pos,
-              currentPlayer: indexPlayer,
-              status: "killed",
-            }),
-            id: 0,
-          })
-        );
+      attacker.hits.push({ ...pos, status: "killed" });
+      broadcast(currentGame.data, "attack", {
+        position: pos,
+        currentPlayer: indexPlayer,
+        status: "killed",
       });
     }
 
     for (const pos of surroundingCells) {
-      currentGame.data.forEach((player) => {
-        connections[player.indexPlayer].send(
-          JSON.stringify({
-            type: "attack",
-            data: JSON.stringify({
-              position: pos,
-              currentPlayer: indexPlayer,
-              status: "miss",
-            }),
-            id: 0,
-          })
-        );
+      attacker.hits.push({ ...pos, status: "miss" });
+      broadcast(currentGame.data, "attack", {
+        position: pos,
+        currentPlayer: indexPlayer,
+        status: "miss",
       });
     }
   }
@@ -86,39 +95,17 @@ export const addAttack = (uuid: string, data: any, random = false) => {
       y: ship.position.y + (ship.direction ? 0 : i),
     }));
 
-    console.log(shipCells);
-
     return shipCells.some(
       (cell) => !ship.hits?.some((hit) => hit.x === cell.x && hit.y === cell.y)
     );
   });
 
   if (!defenderHasAlive) {
-    currentGame.data.forEach((player) => {
-      connections[player.indexPlayer].send(
-        JSON.stringify({
-          type: "finish",
-          data: {
-            winPlayer: indexPlayer,
-          },
-          id: 0,
-        })
-      );
-    });
+    broadcast(currentGame.data, "finish", { winPlayer: indexPlayer });
     updateWinners();
     return;
   }
 
   const nextPlayer = defender.indexPlayer;
-  currentGame.data.forEach((player) => {
-    connections[player.indexPlayer].send(
-      JSON.stringify({
-        type: "turn",
-        data: JSON.stringify({
-          currentPlayer: nextPlayer,
-        }),
-        id: 0,
-      })
-    );
-  });
+  broadcast(currentGame.data, "turn", { currentPlayer: nextPlayer });
 };
